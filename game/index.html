@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solmaris Bay — Open World Crime</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0a0e14; font-family: 'Segoe UI', Arial, sans-serif; }
+  #game-canvas { display: block; width: 100%; height: 100%; }
+  .panel { position: absolute; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; z-index: 5; }
+  #hud-topleft { top: 14px; left: 16px; }
+  #hud-money { font-size: 26px; font-weight: 800; color: #7dff9a; }
+  #hud-health { margin-top: 6px; width: 180px; height: 12px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5); border-radius: 6px; overflow: hidden; }
+  #hud-health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #37d67a, #9be15d); }
+  #hud-stamina { margin-top: 4px; width: 180px; height: 7px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.4); border-radius: 4px; overflow: hidden; }
+  #hud-stamina-fill { height: 100%; width: 100%; background: #7dff9a; }
+  #hud-stars { position: absolute; top: 14px; right: 18px; font-size: 26px; color: #ffd23f; letter-spacing: 2px; }
+  #hud-decay { position: absolute; top: 48px; right: 18px; width: 120px; height: 6px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.4); border-radius: 3px; overflow: hidden; transition: opacity .3s; }
+  #hud-decay-fill { height: 100%; width: 0%; background: #3f8cff; }
+  #hud-decay-label { position: absolute; top: 58px; right: 18px; font-size: 10px; color: #9fc3dd; letter-spacing: 1px; }
+  #hud-objective { position: absolute; left: 16px; bottom: 54px; font-size: 15px; background: rgba(0,0,0,.55); padding: 7px 12px; border-radius: 6px; border-left: 3px solid #ff7b00; }
+  #hud-hint { position: absolute; left: 16px; bottom: 16px; font-size: 12px; color: #cfd6dd; background: rgba(0,0,0,.45); padding: 5px 10px; border-radius: 5px; }
+  #hud-story { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); max-width: 640px; text-align: center; font-size: 16px; font-style: italic; color: #ffe9a8; background: rgba(0,0,0,.55); padding: 10px 18px; border-radius: 8px; opacity: 0; transition: opacity .5s; z-index: 5; pointer-events: none; }
+  #hud-timer { position: absolute; left: 50%; top: 66px; transform: translateX(-50%); font-size: 30px; font-weight: 900; color: #ffd23f; text-shadow: 0 2px 6px rgba(0,0,0,.9); display: none; z-index: 5; pointer-events: none; }
+  #hud-speed { position: absolute; right: 18px; bottom: 176px; font-size: 30px; font-weight: 800; color: #fff; }
+  #hud-gauge { position: absolute; right: 18px; bottom: 216px; width: 74px; height: 40px; overflow: hidden; z-index: 5; pointer-events: none; }
+  #hud-gauge .arc { position: absolute; left: 2px; top: 2px; width: 70px; height: 70px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); border-bottom-color: transparent; border-left-color: transparent; transform: rotate(45deg); }
+  #hud-needle { position: absolute; left: 35px; top: 35px; width: 3px; height: 30px; background: #ff4444; transform-origin: 50% 100%; transform: rotate(-120deg); border-radius: 2px; }
+  #minimap { position: absolute; right: 14px; bottom: 14px; width: 150px; height: 150px; border: 2px solid rgba(255,255,255,.65); border-radius: 8px; background: #10151c; z-index: 5; }
+  #hud-zoom { position: absolute; right: 14px; bottom: 168px; font-size: 11px; color: #cfd6dd; background: rgba(0,0,0,.55); padding: 3px 8px; border-radius: 4px; letter-spacing: 1px; z-index: 5; pointer-events: none; }
+  #hud-vignette { position: absolute; inset: 0; pointer-events: none; z-index: 4; opacity: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,0,0,.55) 100%); transition: opacity .2s; }
+  #title-screen, #pause-screen, #mission-screen, #busted-screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(6,10,18,.72); color: #fff; z-index: 10; cursor: pointer; text-align: center; }
+  #pause-screen, #mission-screen, #busted-screen { display: none; }
+  #mission-screen { background: rgba(6,18,10,.78); cursor: default; }
+  #busted-screen { background: rgba(24,6,6,.8); cursor: default; }
+  .game-title { font-size: 64px; font-weight: 900; letter-spacing: 4px; color: #ffb347; text-shadow: 0 4px 0 #7a2e00, 0 8px 24px rgba(0,0,0,.8); margin: 0; }
+  .game-sub { font-size: 18px; color: #dfe7ee; margin: 12px 0 30px; letter-spacing: 2px; }
+  .story-intro { max-width: 560px; font-size: 15px; line-height: 1.6; color: #ffe9a8; background: rgba(0,0,0,.45); padding: 14px 20px; border-radius: 8px; margin: 0 0 24px; border-left: 3px solid #ffb347; }
+  .click-start { font-size: 20px; background: #ff7b00; color: #fff; border: none; padding: 14px 34px; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+  .controls { margin-top: 26px; font-size: 13px; color: #b9c4ce; line-height: 1.7; }
+  .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 28px; text-align: left; margin-top: 24px; font-size: 13px; color: #b9c4ce; line-height: 1.7; }
+  .controls-grid b { color: #ffd23f; }
+  .title-footer { margin-top: 22px; font-size: 12px; color: #7a8894; letter-spacing: 2px; }
+  .pause-recap { max-width: 520px; font-size: 14px; line-height: 1.7; color: #dfe7ee; background: rgba(0,0,0,.45); padding: 12px 18px; border-radius: 8px; margin: 0 0 16px; border-left: 3px solid #ffb347; }
+  .pause-recap b { color: #ffd23f; }
+  #help-panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 460px; background: rgba(8,12,20,.95); color: #dfe7ee; border: 1px solid rgba(255,255,255,.25); border-radius: 10px; padding: 20px 26px; z-index: 8; display: none; font-size: 14px; line-height: 1.9; }
+  #help-panel h2 { margin: 0 0 8px; color: #ffb347; font-size: 20px; }
+  #help-panel b { color: #ffd23f; }
+  .sum-name { font-size: 34px; font-weight: 900; color: #7dff9a; margin: 6px 0; }
+  .sum-reward { font-size: 44px; font-weight: 900; color: #ffd23f; margin: 6px 0; }
+  .sum-bonus { font-size: 17px; color: #7dff9a; margin: 2px 0 6px; display: none; }
+  .sum-total { font-size: 17px; color: #dfe7ee; }
+  .busted-title { font-size: 72px; font-weight: 900; letter-spacing: 6px; color: #ff4444; text-shadow: 0 4px 0 #5a0000, 0 8px 24px rgba(0,0,0,.8); margin: 0; }
+</style>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<div id="hud-topleft" class="panel">
+  <div id="hud-money">$1,250</div>
+  <div id="hud-health"><div id="hud-health-fill"></div></div>
+  <div id="hud-stamina"><div id="hud-stamina-fill"></div></div>
+</div>
+<div id="hud-stars" class="panel">☆☆☆☆☆</div>
+<div id="hud-decay" class="panel"><div id="hud-decay-fill"></div></div>
+<div id="hud-decay-label" class="panel">HEAT COOLING</div>
+<div id="hud-objective" class="panel">Steal a car — walk to the yellow coupe and press E</div>
+<div id="hud-hint" class="panel">WASD move · Shift run · E enter car · Esc pause</div>
+<div id="hud-story" class="panel"></div>
+<div id="hud-timer" class="panel"></div>
+<div id="hud-vignette"></div>
+<div id="hud-gauge"><div class="arc"></div><div id="hud-needle"></div></div>
+<div id="hud-speed" class="panel">0 km/h</div>
+<div id="hud-zoom" class="panel">MAP ×1</div>
+<canvas id="minimap" width="150" height="150"></canvas>
+
+<div id="help-panel">
+  <h2>CONTROLS — press H to close</h2>
+  <b>WASD / Arrows</b> — move &amp; drive<br>
+  <b>Shift</b> — sprint (drains stamina)<br>
+  <b>E</b> — enter / exit car · grab package / passenger<br>
+  <b>Space</b> — handbrake (drift!)<br>
+  <b>F</b> — take weapon / ammo · <b>Q</b> — switch weapon<br>
+  <b>Click</b> — shoot &nbsp;·&nbsp; <b>R</b> — retry mission<br>
+  <b>Drag mouse</b> — look around &nbsp;·&nbsp; <b>M</b> — music<br>
+  <b>Esc</b> — pause<br><br>
+  <b>Steal cars:</b> yellow coupe downtown, red sports car east, white van by the park.<br>
+  <b>Heat:</b> stars rise when the cops see you. Break line of sight and the bar above the stars fills — one star drops when it is full. At 3 stars the cops throw up roadblocks. At 4 stars they call backup — two more cruisers.<br>
+  <b>New keys:</b> <b>Space</b> — jump on foot · <b>H</b> — car horn (driving) · <b>N</b> — minimap zoom · <b>R</b> — reload pistol (when no mission is failed) · double-tap <b>W</b> — sprint without Shift.
+</div>
+
+<div id="title-screen">
+  <h1 class="game-title">SOLMARIS BAY</h1>
+  <div class="game-sub">OPEN WORLD &nbsp;·&nbsp; CARS &nbsp;·&nbsp; STREETS &nbsp;·&nbsp; HEAT</div>
+  <div class="story-intro">Raka is a courier who owes the Bay Street crew $50,000. Four jobs stand between him and a clean slate — a stolen coupe, a sealed package, a three-star chase, and one last getaway across the whole bay. The city is open. The cops are not patient.</div>
+  <button class="click-start">▶ &nbsp;START THE HUSTLE</button>
+  <div class="controls-grid">
+    <div><b>WASD / Arrows</b> — move &amp; drive</div><div><b>Shift</b> / double-tap W — sprint</div>
+    <div><b>E</b> — enter / exit car · grab package</div><div><b>Space</b> — handbrake · jump on foot</div>
+    <div><b>F</b> — take pistol / ammo · <b>Q</b> — switch weapon</div><div><b>Click</b> — shoot · <b>R</b> — reload / retry</div>
+    <div><b>H</b> — help on foot · horn in a car</div><div><b>N</b> — minimap zoom · <b>M</b> — music</div>
+  </div>
+  <div class="title-footer">SOLMARIS BAY v1.0 &nbsp;·&nbsp; A MAKE.FUN ENTRY &nbsp;·&nbsp; PLAYS IN YOUR BROWSER, NO INSTALL</div>
+</div>
+
+<div id="pause-screen">
+  <h1 class="game-title" style="font-size:44px">PAUSED</h1>
+  <div class="game-sub">Press Esc to keep hustling · H for controls</div>
+  <div class="pause-recap"><b>How to play:</b> follow the yellow beacon — it marks your next job. Steal a car with <b>E</b>, drive to the marker, and the job pays out. Stars are the cops' wanted level: break their line of sight and the HEAT COOLING bar fills until a star drops. Finish a job at full health for a +$50 clean-getaway bonus. Get busted and the cops take $150. Missions run in order — First Wheels → Package Run → Heat Escape → Getaway Driver — and each one starts automatically when the last one ends.</div>
+</div>
+
+<div id="mission-screen">
+  <div class="game-sub" style="margin:0">MISSION COMPLETE</div>
+  <div class="sum-name"></div>
+  <div class="sum-reward"></div>
+  <div class="sum-bonus"></div>
+  <div class="sum-total"></div>
+</div>
+
+<div id="busted-screen">
+  <h1 class="busted-title">BUSTED</h1>
+  <div class="game-sub">The cops took $150 and dropped you downtown</div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/input.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/world.js"></script>
+<script src="js/player.js"></script>
+<script src="js/vehicle.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/traffic.js"></script>
+<script src="js/police.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
